@@ -1,6 +1,6 @@
 pub mod sha1 {
     const HASH_SIZE: usize = 20;
-    #[derive(PartialEq, Clone, Copy)]
+    #[derive(PartialEq)]
     struct Context {
         intermediate_hash: [u32; HASH_SIZE / 4], /* Message Digest  */
         length: u64,                             /* Message length in bits      */
@@ -15,18 +15,12 @@ pub mod sha1 {
     }
     impl Context {
         pub fn new() -> Self {
-            let mut ret = Context {
-                intermediate_hash: [0; HASH_SIZE / 4],
+            Context {
+                intermediate_hash: [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0],
                 length: 0,
                 message_block_index: 0,
                 message_block: [0; 64],
-            };
-            ret.reset();
-            ret
-        }
-        pub fn reset(&mut self) {
-            self.intermediate_hash = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0];
-            self.length = 0;
+            }
         }
         pub fn input(&mut self, message_array: &[u8]) {
             for message in message_array.iter().cloned() {
@@ -123,11 +117,8 @@ pub mod sha1 {
 
             self.message_block_index = 0;
         }
-        fn result(&mut self) -> [u8; HASH_SIZE] {
-                self.pad_message();
-                self.message_block.fill(0); /* message may be sensitive, clear it out */
-                self.length = 0; /* and clear length */
-            
+        fn result(mut self) -> [u8; HASH_SIZE] {
+            self.pad_message();
             let mut ret = [0;20];
             for (i, v) in self
                 .intermediate_hash
@@ -139,15 +130,14 @@ pub mod sha1 {
             {
                 ret[i] = v;
             };
-            self.reset();
             ret
         }
     }
 
     pub fn hmac_sha1(key: &[u8], message: &[u8]) -> [u8; 20] {
-        let mut context = Context::new();
         let key_buff : [u8;20];
         let key : &[u8] = if key.len() > 64 {
+            let mut context = Context::new();
             context.input(key);
             key_buff = context.result();
             &key_buff
@@ -160,9 +150,11 @@ pub mod sha1 {
             ipad[i]^=byte;
             opad[i]^=byte;
         }
+        let mut context = Context::new();
         context.input(&ipad);
         context.input(message);
         let temp = context.result();
+        let mut context = Context::new();
         context.input(&opad);
         context.input(&temp);
         context.result()
@@ -206,7 +198,6 @@ pub mod sha1 {
                 "34 AA 97 3C D4 C4 DA A4 F6 1E EB 2B DB AD 27 31 65 34 01 6F ",
                 "DE A3 56 A2 CD DD 90 C7 A7 EC ED C5 EB B5 63 93 4F 46 04 52 ",
             ];
-            let mut sha = Context::new();
             for j in 0..4 {
                 println!(
                     "\nTest {}: {}, '{}'",
@@ -214,7 +205,7 @@ pub mod sha1 {
                     REPEATCOUNT[j],
                     (str::from_utf8(TESTARRAY[j])).expect("ascii string")
                 );
-
+                let mut sha = Context::new();
                 for _ in 0..REPEATCOUNT[j] {
                     sha.input(TESTARRAY[j]);
                 }
