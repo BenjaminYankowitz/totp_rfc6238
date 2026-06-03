@@ -2,6 +2,7 @@ use std::{
     fmt,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
+mod inplace_veclib;
 
 pub struct Key {
     data: Vec<u8>,

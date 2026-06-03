@@ -1,11 +1,12 @@
+pub use crate::inplace_veclib::inplace_vec;
 pub mod sha1 {
+    use crate::shalib::inplace_vec::InplaceVec;
+
     const HASH_SIZE: usize = 20;
-    #[derive(PartialEq)]
     struct Context {
         intermediate_hash: [u32; HASH_SIZE / 4], /* Message Digest  */
         length: u64,                             /* Message length in bits      */
-        message_block_index: u16,                /* Index into message block array   */
-        message_block: [u8; 64],                 /* 512-bit message blocks      */
+        message_block: InplaceVec<u8,64>,                 /* 512-bit message blocks      */
     }
     fn circular_shift(bits: u8, word: u32) -> u32 {
         let op_bits = 32 - bits;
@@ -18,19 +19,17 @@ pub mod sha1 {
             Context {
                 intermediate_hash: [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0],
                 length: 0,
-                message_block_index: 0,
-                message_block: [0; 64],
+                message_block: InplaceVec::new(),
             }
         }
         pub fn input(&mut self, message_array: &[u8]) {
             for message in message_array.iter().cloned() {
-                self.message_block[self.message_block_index as usize] = message;
-                self.message_block_index += 1;
+                self.message_block.push_back(message);
                 match self.length.checked_add(8) {
                     Some(v) => self.length = v,
                     None => panic!("message over 2^64 bits"),
                 };
-                if self.message_block_index == 64 {
+                if self.message_block.full() {
                     self.process_message_block();
                 }
             }
@@ -43,34 +42,18 @@ pub mod sha1 {
             //      *  block, process it, and then continue padding into a second
             //      *  block.
             //      */
-            self.message_block[self.message_block_index as usize] = 0x80;
-            self.message_block_index += 1;
-            if self.message_block_index > 56 {
-                self.message_block
-                    .split_at_mut(self.message_block_index as usize)
-                    .1
-                    .fill(0);
-                while self.message_block_index < 64 {
-                    self.message_block[self.message_block_index as usize] = 0;
-                    self.message_block_index += 1;
-                }
+            self.message_block.push_back(0x80);
+            if self.message_block.len() > 56 {
+                self.message_block.fill_rest(0);
                 self.process_message_block();
             }
-            self.message_block
-                .split_at_mut(56)
-                .0
-                .split_at_mut(self.message_block_index as usize)
-                .1
-                .fill(0);
+            self.message_block.fill_up_to(0, 56);
 
             //     /*
             //      *  Store the message length as the last 8 octets
             //      */
-            for (to, from) in std::iter::zip(
-                self.message_block.split_at_mut(56).1,
-                self.length.to_be_bytes(),
-            ) {
-                *to = from;
+            for byte in self.length.to_be_bytes() {
+                self.message_block.push_back(byte);
             }
             self.process_message_block();
         }
@@ -115,7 +98,7 @@ pub mod sha1 {
                 *to = to.overflowing_add(from).0;
             }
 
-            self.message_block_index = 0;
+            self.message_block.clear();
         }
         fn result(mut self) -> [u8; HASH_SIZE] {
             self.pad_message();
