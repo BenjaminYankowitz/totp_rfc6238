@@ -34,7 +34,7 @@ pub mod sha1 {
             } else {
                 let open_space = self.message_block.open_capacity();
                 for byte in message_array.iter().take(open_space).cloned() {
-                    self.message_block.push_back(byte);
+                    self.message_block.push(byte);
                 }
                 if !self.message_block.full() {
                     return;
@@ -47,7 +47,7 @@ pub mod sha1 {
                 Context::process_message_block_arb(&mut self.intermediate_hash, block);
             }
             for byte in rest.remainder() {
-                self.message_block.push_back(*byte);
+                self.message_block.push(*byte);
             }
         }
 
@@ -58,7 +58,7 @@ pub mod sha1 {
             //      *  block, process it, and then continue padding into a second
             //      *  block.
             //      */
-            self.message_block.push_back(0x80);
+            self.message_block.push(0x80);
             if self.message_block.len() > 56 {
                 self.message_block.fill_rest(0);
                 self.process_message_block();
@@ -69,7 +69,7 @@ pub mod sha1 {
             //      *  Store the message length as the last 8 octets
             //      */
             for byte in self.length.to_be_bytes() {
-                self.message_block.push_back(byte);
+                self.message_block.push(byte);
             }
             self.process_message_block();
         }
@@ -92,13 +92,13 @@ pub mod sha1 {
             ];
             let mut w = InplaceVec::<u32, 80>::new();
             for val in message_block.chunks_exact(4) {
-                w.push_back(u32::from_be_bytes(
+                w.push(u32::from_be_bytes(
                     val.try_into().expect("Must be 4 because prev line"),
                 ));
             }
 
             for t in 16..80 {
-                w.push_back(circular_shift(
+                w.push(circular_shift(
                     1,
                     w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16],
                 ));

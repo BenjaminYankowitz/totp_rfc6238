@@ -16,13 +16,13 @@ pub mod inplace_vec {
                 len: 0,
             }
         }
-        pub fn push_back_mut(&mut self, val: T) -> &mut T {
+        pub fn push_mut(&mut self, val: T) -> &mut T {
             let ret = self.data[self.len].write(val);
             self.len += 1;
             ret
         }
-        pub fn push_back(&mut self, val: T) {
-            self.push_back_mut(val);
+        pub fn push(&mut self, val: T) {
+            self.push_mut(val);
         }
         pub fn capacity(&self) -> usize {
             SIZE
@@ -53,7 +53,7 @@ pub mod inplace_vec {
                 panic!("Cannot fill past capacity")
             }
             while self.len() < len {
-                self.push_back(val.clone());
+                self.push(val.clone());
             }
         }
         pub fn fill_rest(&mut self, val: T) {
@@ -109,16 +109,16 @@ pub mod inplace_vec {
         #[test]
         fn push_back_test() {
             let mut v = InplaceVec::<_, 10>::new();
-            v.push_back(23);
-            v.push_back(92);
+            v.push(23);
+            v.push(92);
             assert_eq!(v[0], 23);
             assert_eq!(v[1], 92);
         }
         #[test]
         fn fill_rest_test() {
             let mut v = InplaceVec::<_, 10>::new();
-            v.push_back(23);
-            v.push_back(92);
+            v.push(23);
+            v.push(92);
             v.fill_rest(-8);
             assert_eq!(v[0], 23);
             assert_eq!(v[1], 92);
