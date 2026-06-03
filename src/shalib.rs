@@ -66,13 +66,13 @@ pub mod sha1 {
                 |b, c, d| (b & c) | (b & d) | (c & d),
                 |b, c, d| b ^ c ^ d,
             ];
-            let mut w = [0u32; 80];
-            for (t, val) in self.message_block.chunks_exact(4).enumerate() {
-                w[t] = u32::from_be_bytes(val.try_into().expect("Must be 4 because prev line"));
+            let mut w = InplaceVec::<u32,80>::new();
+            for val in self.message_block.chunks_exact(4) {
+                w.push_back(u32::from_be_bytes(val.try_into().expect("Must be 4 because prev line")));
             }
 
             for t in 16..80 {
-                w[t] = circular_shift(1, w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16]);
+                w.push_back(circular_shift(1, w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16]));
             }
 
             let [mut a, mut b, mut c, mut d, mut e] = self.intermediate_hash;
