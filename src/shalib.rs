@@ -1,12 +1,14 @@
 pub use crate::inplace_veclib::inplace_vec;
 pub mod sha1 {
-    use crate::shalib::inplace_vec::InplaceVec;
+    use std::ops::Deref;
 
-    const HASH_SIZE: usize = 20;
+use crate::shalib::inplace_vec::InplaceVec;
+    const BLOCK_SIZE : usize = 64;
+    const HASH_SIZE : usize = 20;
     struct Context {
         intermediate_hash: [u32; HASH_SIZE / 4], /* Message Digest  */
         length: u64,                             /* Message length in bits      */
-        message_block: InplaceVec<u8, 64>,       /* 512-bit message blocks      */
+        message_block: InplaceVec<u8, BLOCK_SIZE>,       /* 512-bit message blocks      */
     }
     fn circular_shift(bits: u8, word: u32) -> u32 {
         let op_bits = 32 - bits;
@@ -27,11 +29,25 @@ pub mod sha1 {
                 Some(v) => self.length = v,
                 None => panic!("message over 2^64 bits"),
             };
-            for message in message_array.iter().cloned() {
-                self.message_block.push_back(message);
-                if self.message_block.full() {
-                    self.process_message_block();
+            let mut rest = if self.message_block.is_empty() {
+                message_array
+            } else {
+                let open_space = self.message_block.open_capacity();
+                for byte in message_array.iter().take(open_space).cloned() {
+                    self.message_block.push_back(byte);
                 }
+                if !self.message_block.full() {
+                    return;
+                }
+                self.process_message_block();
+                message_array.split_at(open_space).1
+            }
+            .chunks_exact(BLOCK_SIZE);
+            for block in &mut rest {
+                Context::process_message_block_arb(&mut self.intermediate_hash,block);
+            }
+            for byte in rest.remainder() {
+                 self.message_block.push_back(*byte);
             }
         }
 
@@ -57,8 +73,13 @@ pub mod sha1 {
             }
             self.process_message_block();
         }
-
         fn process_message_block(&mut self) {
+            Context::process_message_block_arb(&mut self.intermediate_hash,self.message_block.deref());
+            self.message_block.clear();
+        }
+        fn process_message_block_arb(intermediate_hash: &mut [u32; 5], message_block : &[u8]) {
+            assert!(message_block.len()==BLOCK_SIZE);
+            
             let k = [0x5A827999, 0x6ED9EBA1, 0x8F1BBCDC, 0xCA62C1D6];
             let f = [
                 |b: u32, c, d| (b & c) | ((!b) & d),
@@ -67,7 +88,7 @@ pub mod sha1 {
                 |b, c, d| b ^ c ^ d,
             ];
             let mut w = InplaceVec::<u32, 80>::new();
-            for val in self.message_block.chunks_exact(4) {
+            for val in message_block.chunks_exact(4) {
                 w.push_back(u32::from_be_bytes(
                     val.try_into().expect("Must be 4 because prev line"),
                 ));
@@ -80,7 +101,7 @@ pub mod sha1 {
                 ));
             }
 
-            let [mut a, mut b, mut c, mut d, mut e] = self.intermediate_hash;
+            let [mut a, mut b, mut c, mut d, mut e] = intermediate_hash.clone();
             for i in 0..4 {
                 for w_v in w.iter().take((i + 1) * 20).skip(i * 20) {
                     let temp = circular_shift(5, a)
@@ -99,11 +120,9 @@ pub mod sha1 {
                     a = temp;
                 }
             }
-            for (to, from) in std::iter::zip(self.intermediate_hash.iter_mut(), [a, b, c, d, e]) {
+            for (to, from) in std::iter::zip(intermediate_hash.iter_mut(), [a, b, c, d, e]) {
                 *to = to.overflowing_add(from).0;
             }
-
-            self.message_block.clear();
         }
         fn result(mut self) -> [u8; HASH_SIZE] {
             self.pad_message();
