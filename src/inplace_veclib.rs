@@ -1,7 +1,7 @@
 pub mod inplace_vec {
     use std::{
         mem::MaybeUninit,
-        ops::{Deref, DerefMut, Index, IndexMut},
+        ops::{Deref, DerefMut},
     };
 
     pub struct InplaceVec<T, const SIZE: usize> {
@@ -66,27 +66,6 @@ pub mod inplace_vec {
         }
     }
 
-    impl<T, const SIZE: usize> Index<usize> for InplaceVec<T, SIZE> {
-        type Output = T;
-
-        fn index(&self, index: usize) -> &Self::Output {
-            if index >= self.len {
-                panic!("index out of bounds");
-            }
-            //SAFETY: We panic on previous line if it is not initialized.
-            unsafe { self.data[index].assume_init_ref() }
-        }
-    }
-
-    impl<T, const SIZE: usize> IndexMut<usize> for InplaceVec<T, SIZE> {
-        fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-            if index >= self.len {
-                panic!("index out of bounds");
-            }
-            //SAFETY: We panic on previous line if it is not initialized.
-            unsafe { self.data[index].assume_init_mut() }
-        }
-    }
     impl<T, const SIZE: usize> Deref for InplaceVec<T, SIZE> {
         type Target = [T];
 
