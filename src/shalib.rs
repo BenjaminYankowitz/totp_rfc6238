@@ -2,13 +2,13 @@ pub use crate::inplace_veclib::inplace_vec;
 pub mod sha1 {
     use std::ops::Deref;
 
-use crate::shalib::inplace_vec::InplaceVec;
-    const BLOCK_SIZE : usize = 64;
-    const HASH_SIZE : usize = 20;
+    use crate::shalib::inplace_vec::InplaceVec;
+    const BLOCK_SIZE: usize = 64;
+    const HASH_SIZE: usize = 20;
     struct Context {
         intermediate_hash: [u32; HASH_SIZE / 4], /* Message Digest  */
         length: u64,                             /* Message length in bits      */
-        message_block: InplaceVec<u8, BLOCK_SIZE>,       /* 512-bit message blocks      */
+        message_block: InplaceVec<u8, BLOCK_SIZE>, /* 512-bit message blocks      */
     }
     fn circular_shift(bits: u8, word: u32) -> u32 {
         let op_bits = 32 - bits;
@@ -25,7 +25,7 @@ use crate::shalib::inplace_vec::InplaceVec;
             }
         }
         pub fn input(&mut self, message_array: &[u8]) {
-            match self.length.checked_add(8*message_array.len() as u64) {
+            match self.length.checked_add(8 * message_array.len() as u64) {
                 Some(v) => self.length = v,
                 None => panic!("message over 2^64 bits"),
             };
@@ -44,10 +44,10 @@ use crate::shalib::inplace_vec::InplaceVec;
             }
             .chunks_exact(BLOCK_SIZE);
             for block in &mut rest {
-                Context::process_message_block_arb(&mut self.intermediate_hash,block);
+                Context::process_message_block_arb(&mut self.intermediate_hash, block);
             }
             for byte in rest.remainder() {
-                 self.message_block.push_back(*byte);
+                self.message_block.push_back(*byte);
             }
         }
 
@@ -74,12 +74,15 @@ use crate::shalib::inplace_vec::InplaceVec;
             self.process_message_block();
         }
         fn process_message_block(&mut self) {
-            Context::process_message_block_arb(&mut self.intermediate_hash,self.message_block.deref());
+            Context::process_message_block_arb(
+                &mut self.intermediate_hash,
+                self.message_block.deref(),
+            );
             self.message_block.clear();
         }
-        fn process_message_block_arb(intermediate_hash: &mut [u32; 5], message_block : &[u8]) {
-            assert!(message_block.len()==BLOCK_SIZE);
-            
+        fn process_message_block_arb(intermediate_hash: &mut [u32; 5], message_block: &[u8]) {
+            assert!(message_block.len() == BLOCK_SIZE);
+
             let k = [0x5A827999, 0x6ED9EBA1, 0x8F1BBCDC, 0xCA62C1D6];
             let f = [
                 |b: u32, c, d| (b & c) | ((!b) & d),
