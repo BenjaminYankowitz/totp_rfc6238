@@ -6,7 +6,7 @@ pub mod sha1 {
     struct Context {
         intermediate_hash: [u32; HASH_SIZE / 4], /* Message Digest  */
         length: u64,                             /* Message length in bits      */
-        message_block: InplaceVec<u8,64>,                 /* 512-bit message blocks      */
+        message_block: InplaceVec<u8, 64>,       /* 512-bit message blocks      */
     }
     fn circular_shift(bits: u8, word: u32) -> u32 {
         let op_bits = 32 - bits;
@@ -23,12 +23,12 @@ pub mod sha1 {
             }
         }
         pub fn input(&mut self, message_array: &[u8]) {
+            match self.length.checked_add(8*message_array.len() as u64) {
+                Some(v) => self.length = v,
+                None => panic!("message over 2^64 bits"),
+            };
             for message in message_array.iter().cloned() {
                 self.message_block.push_back(message);
-                match self.length.checked_add(8) {
-                    Some(v) => self.length = v,
-                    None => panic!("message over 2^64 bits"),
-                };
                 if self.message_block.full() {
                     self.process_message_block();
                 }
@@ -66,13 +66,18 @@ pub mod sha1 {
                 |b, c, d| (b & c) | (b & d) | (c & d),
                 |b, c, d| b ^ c ^ d,
             ];
-            let mut w = InplaceVec::<u32,80>::new();
+            let mut w = InplaceVec::<u32, 80>::new();
             for val in self.message_block.chunks_exact(4) {
-                w.push_back(u32::from_be_bytes(val.try_into().expect("Must be 4 because prev line")));
+                w.push_back(u32::from_be_bytes(
+                    val.try_into().expect("Must be 4 because prev line"),
+                ));
             }
 
             for t in 16..80 {
-                w.push_back(circular_shift(1, w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16]));
+                w.push_back(circular_shift(
+                    1,
+                    w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16],
+                ));
             }
 
             let [mut a, mut b, mut c, mut d, mut e] = self.intermediate_hash;
@@ -102,7 +107,7 @@ pub mod sha1 {
         }
         fn result(mut self) -> [u8; HASH_SIZE] {
             self.pad_message();
-            let mut ret = [0;20];
+            let mut ret = [0; 20];
             for (i, v) in self
                 .intermediate_hash
                 .map(|v| v.to_be_bytes())
@@ -112,14 +117,14 @@ pub mod sha1 {
                 .enumerate()
             {
                 ret[i] = v;
-            };
+            }
             ret
         }
     }
 
     pub fn hmac_sha1(key: &[u8], message: &[u8]) -> [u8; 20] {
-        let key_buff : [u8;20];
-        let key : &[u8] = if key.len() > 64 {
+        let key_buff: [u8; 20];
+        let key: &[u8] = if key.len() > 64 {
             let mut context = Context::new();
             context.input(key);
             key_buff = context.result();
@@ -127,11 +132,11 @@ pub mod sha1 {
         } else {
             key
         };
-        let mut ipad = [0x36;64];
-        let mut opad = [0x5c;64];
-        for (i,byte) in key.iter().enumerate() {
-            ipad[i]^=byte;
-            opad[i]^=byte;
+        let mut ipad = [0x36; 64];
+        let mut opad = [0x5c; 64];
+        for (i, byte) in key.iter().enumerate() {
+            ipad[i] ^= byte;
+            opad[i] ^= byte;
         }
         let mut context = Context::new();
         context.input(&ipad);
